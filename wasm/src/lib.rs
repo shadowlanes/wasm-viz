@@ -4,6 +4,13 @@ use wasm_bindgen::prelude::*;
 
 const WALL: u8 = 1;
 
+// 8-connected neighbor offsets (row, col). Order is locked across JS and Rust
+// so node-explored counts match. N, S, W, E, NW, NE, SW, SE.
+const NEIGHBORS: [(i32, i32); 8] = [
+    (-1, 0), (1, 0), (0, -1), (0, 1),
+    (-1, -1), (-1, 1), (1, -1), (1, 1),
+];
+
 // Dijkstra heap entry — ordered by cost ascending.
 #[derive(Copy, Clone, PartialEq, Eq)]
 struct Node {
@@ -99,34 +106,16 @@ pub fn dijkstra(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
         if i == end { found = true; break; }
         if cost > dist[i] { continue; }
 
-        let r = i / n;
-        let c = i % n;
+        let r = (i / n) as i32;
+        let c = (i % n) as i32;
         let nd = cost + 1;
-
-        if r > 0 {
-            let ni = i - n;
-            if grid[ni] != WALL && nd < dist[ni] {
-                dist[ni] = nd; prev[ni] = i as i32;
-                heap.push(Node { cost: nd, idx: ni as u32 });
-            }
-        }
-        if r + 1 < n {
-            let ni = i + n;
-            if grid[ni] != WALL && nd < dist[ni] {
-                dist[ni] = nd; prev[ni] = i as i32;
-                heap.push(Node { cost: nd, idx: ni as u32 });
-            }
-        }
-        if c > 0 {
-            let ni = i - 1;
-            if grid[ni] != WALL && nd < dist[ni] {
-                dist[ni] = nd; prev[ni] = i as i32;
-                heap.push(Node { cost: nd, idx: ni as u32 });
-            }
-        }
-        if c + 1 < n {
-            let ni = i + 1;
-            if grid[ni] != WALL && nd < dist[ni] {
+        for (dr, dc) in NEIGHBORS {
+            let nr = r + dr;
+            let nc = c + dc;
+            if nr < 0 || nc < 0 || nr >= n as i32 || nc >= n as i32 { continue; }
+            let ni = nr as usize * n + nc as usize;
+            if grid[ni] == WALL { continue; }
+            if nd < dist[ni] {
                 dist[ni] = nd; prev[ni] = i as i32;
                 heap.push(Node { cost: nd, idx: ni as u32 });
             }
@@ -154,27 +143,23 @@ fn expand_dir(
     other_dist: &[u32],
     mu: &mut u32, meet: &mut i32,
 ) {
-    let r = i / n;
-    let c = i % n;
+    let r = (i / n) as i32;
+    let c = (i % n) as i32;
     let nd = cost + 1;
-    let candidates: [Option<usize>; 4] = [
-        if r > 0 { Some(i - n) } else { None },
-        if r + 1 < n { Some(i + n) } else { None },
-        if c > 0 { Some(i - 1) } else { None },
-        if c + 1 < n { Some(i + 1) } else { None },
-    ];
-    for ni_opt in candidates {
-        if let Some(ni) = ni_opt {
-            if grid[ni] == WALL { continue; }
-            if nd < dist[ni] {
-                dist[ni] = nd;
-                prev[ni] = i as i32;
-                heap.push(Node { cost: nd, idx: ni as u32 });
-            }
-            if other_dist[ni] != u32::MAX {
-                let t = dist[ni].saturating_add(other_dist[ni]);
-                if t < *mu { *mu = t; *meet = ni as i32; }
-            }
+    for (dr, dc) in NEIGHBORS {
+        let nr = r + dr;
+        let nc = c + dc;
+        if nr < 0 || nc < 0 || nr >= n as i32 || nc >= n as i32 { continue; }
+        let ni = nr as usize * n + nc as usize;
+        if grid[ni] == WALL { continue; }
+        if nd < dist[ni] {
+            dist[ni] = nd;
+            prev[ni] = i as i32;
+            heap.push(Node { cost: nd, idx: ni as u32 });
+        }
+        if other_dist[ni] != u32::MAX {
+            let t = dist[ni].saturating_add(other_dist[ni]);
+            if t < *mu { *mu = t; *meet = ni as i32; }
         }
     }
 }
@@ -293,20 +278,18 @@ pub fn bfs(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
         visited_order.push(i as u32);
         if i == end { found = true; break; }
 
-        let r = i / n;
-        let c = i % n;
-
-        let mut try_n = |ni: usize, prev: &mut [i32], seen: &mut [bool], queue: &mut VecDeque<usize>| {
-            if grid[ni] == WALL || seen[ni] { return; }
+        let r = (i / n) as i32;
+        let c = (i % n) as i32;
+        for (dr, dc) in NEIGHBORS {
+            let nr = r + dr;
+            let nc = c + dc;
+            if nr < 0 || nc < 0 || nr >= n as i32 || nc >= n as i32 { continue; }
+            let ni = nr as usize * n + nc as usize;
+            if grid[ni] == WALL || seen[ni] { continue; }
             seen[ni] = true;
             prev[ni] = i as i32;
             queue.push_back(ni);
-        };
-
-        if r > 0 { try_n(i - n, &mut prev, &mut seen, &mut queue); }
-        if r + 1 < n { try_n(i + n, &mut prev, &mut seen, &mut queue); }
-        if c > 0 { try_n(i - 1, &mut prev, &mut seen, &mut queue); }
-        if c + 1 < n { try_n(i + 1, &mut prev, &mut seen, &mut queue); }
+        }
     }
 
     let path = reconstruct(&prev, end, found);
@@ -319,13 +302,190 @@ pub fn bfs(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
     }
 }
 
+// --- Jump Point Search (8-connected, unit-cost Chebyshev, corner cutting allowed) ---
+
 #[inline]
-fn manhattan(idx: usize, n: usize, er: usize, ec: usize) -> u32 {
+fn cell_open(grid: &[u8], n: usize, r: i32, c: i32) -> bool {
+    if r < 0 || c < 0 || r >= n as i32 || c >= n as i32 { return false; }
+    grid[r as usize * n + c as usize] != WALL
+}
+#[inline]
+fn cell_blocked(grid: &[u8], n: usize, r: i32, c: i32) -> bool {
+    !cell_open(grid, n, r, c)
+}
+
+// Jump from (r,c) in direction (dr,dc) (one of 8 unit directions). Returns
+// Some(idx) of the jump point or None.
+fn jump(grid: &[u8], n: usize, mut r: i32, mut c: i32, dr: i32, dc: i32, end: usize) -> Option<usize> {
+    loop {
+        let nr = r + dr;
+        let nc = c + dc;
+        if !cell_open(grid, n, nr, nc) { return None; }
+        let nidx = nr as usize * n + nc as usize;
+        if nidx == end { return Some(nidx); }
+
+        if dr != 0 && dc != 0 {
+            // Diagonal. Forced if the cell "behind" perpendicular is blocked
+            // but the cell perpendicular at nr,nc is open.
+            // Standard 8-connected JPS forced rules for diagonal d=(dr,dc):
+            //   forced 1: blocked(nr - dr, nc) and open(nr - dr, nc + dc)
+            //   forced 2: blocked(nr, nc - dc) and open(nr + dr, nc - dc)
+            if (cell_blocked(grid, n, nr - dr, nc) && cell_open(grid, n, nr - dr, nc + dc))
+               || (cell_blocked(grid, n, nr, nc - dc) && cell_open(grid, n, nr + dr, nc - dc))
+            {
+                return Some(nidx);
+            }
+            // From a diagonal step, also probe both component orthogonals.
+            if jump(grid, n, nr, nc, dr, 0, end).is_some() { return Some(nidx); }
+            if jump(grid, n, nr, nc, 0, dc, end).is_some() { return Some(nidx); }
+        } else if dr != 0 {
+            // Vertical orthogonal motion.
+            if (cell_blocked(grid, n, nr, nc + 1) && cell_open(grid, n, nr + dr, nc + 1))
+               || (cell_blocked(grid, n, nr, nc - 1) && cell_open(grid, n, nr + dr, nc - 1))
+            {
+                return Some(nidx);
+            }
+        } else {
+            // Horizontal orthogonal motion.
+            if (cell_blocked(grid, n, nr + 1, nc) && cell_open(grid, n, nr + 1, nc + dc))
+               || (cell_blocked(grid, n, nr - 1, nc) && cell_open(grid, n, nr - 1, nc + dc))
+            {
+                return Some(nidx);
+            }
+        }
+        r = nr; c = nc;
+    }
+}
+
+// Successor-pruning rules: given current node x reached from parent in
+// direction d, return the directions to jump in. For 8-connected JPS:
+// - Diagonal d: natural = d, plus the two component orthogonals (dr,0) and (0,dc).
+//     Plus forced perpendiculars determined by walls "behind" x.
+// - Orthogonal d: natural = d, plus forced perpendiculars determined by walls
+//     beside x's parent that aren't beside x.
+// Start node: all 8 directions.
+fn pruned_dirs(grid: &[u8], n: usize, r: i32, c: i32, parent: i32) -> Vec<(i32, i32)> {
+    let mut dirs: Vec<(i32, i32)> = Vec::with_capacity(8);
+    if parent < 0 {
+        for d in NEIGHBORS { dirs.push(d); }
+        return dirs;
+    }
+    let pr = (parent as usize / n) as i32;
+    let pc = (parent as usize % n) as i32;
+    let dr = (r - pr).signum();
+    let dc = (c - pc).signum();
+    if dr != 0 && dc != 0 {
+        dirs.push((dr, dc));
+        dirs.push((dr, 0));
+        dirs.push((0, dc));
+        // Forced neighbors at x given diagonal arrival
+        if cell_blocked(grid, n, r, c - dc) && cell_open(grid, n, r + dr, c - dc) { dirs.push((dr, -dc)); }
+        if cell_blocked(grid, n, r - dr, c) && cell_open(grid, n, r - dr, c + dc) { dirs.push((-dr, dc)); }
+    } else if dr != 0 {
+        dirs.push((dr, 0));
+        if cell_blocked(grid, n, r, c + 1) && cell_open(grid, n, r + dr, c + 1) { dirs.push((dr, 1)); }
+        if cell_blocked(grid, n, r, c - 1) && cell_open(grid, n, r + dr, c - 1) { dirs.push((dr, -1)); }
+    } else {
+        dirs.push((0, dc));
+        if cell_blocked(grid, n, r + 1, c) && cell_open(grid, n, r + 1, c + dc) { dirs.push((1, dc)); }
+        if cell_blocked(grid, n, r - 1, c) && cell_open(grid, n, r - 1, c + dc) { dirs.push((-1, dc)); }
+    }
+    dirs
+}
+
+#[wasm_bindgen]
+pub fn jps(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
+    let n = n as usize;
+    let total = n * n;
+    let start = start as usize;
+    let end = end as usize;
+    let er = (end / n) as i32;
+    let ec = (end % n) as i32;
+
+    let mut g_score: Vec<u32> = vec![u32::MAX; total];
+    let mut prev: Vec<i32> = vec![-1; total];
+    let mut visited_order: Vec<u32> = Vec::new();
+    let mut closed: Vec<bool> = vec![false; total];
+
+    let mut heap: BinaryHeap<ANode> = BinaryHeap::new();
+    g_score[start] = 0;
+    let h0 = chebyshev(start, n, er as usize, ec as usize);
+    heap.push(ANode { f: h0, g: 0, idx: start as u32 });
+
+    let mut found = false;
+
+    while let Some(ANode { f: _, g: _, idx }) = heap.pop() {
+        let i = idx as usize;
+        if closed[i] { continue; }
+        closed[i] = true;
+        visited_order.push(idx);
+        if i == end { found = true; break; }
+
+        let r = (i / n) as i32;
+        let c = (i % n) as i32;
+        let dirs = pruned_dirs(grid, n, r, c, prev[i]);
+        let g_here = g_score[i];
+        for (dr, dc) in dirs {
+            if let Some(jp) = jump(grid, n, r, c, dr, dc, end) {
+                let jpr = (jp / n) as i32;
+                let jpc = (jp % n) as i32;
+                // Chebyshev (unit-cost 8-connected): max of axis distances.
+                let dy = (jpr - r).abs();
+                let dx = (jpc - c).abs();
+                let step = if dy > dx { dy as u32 } else { dx as u32 };
+                let ng = g_here + step;
+                if ng < g_score[jp] {
+                    g_score[jp] = ng;
+                    prev[jp] = i as i32;
+                    let h = chebyshev(jp, n, er as usize, ec as usize);
+                    heap.push(ANode { f: ng + h, g: ng, idx: jp as u32 });
+                }
+            }
+        }
+    }
+
+    // Interpolate straight-line cells between jump points for the visualized path.
+    let path = if !found {
+        Vec::new()
+    } else {
+        let mut tmp: Vec<u32> = Vec::new();
+        let mut cur = end as i32;
+        while cur != -1 {
+            let p = prev[cur as usize];
+            if p < 0 { tmp.push(cur as u32); break; }
+            let cr = (cur as usize / n) as i32;
+            let cc = (cur as usize % n) as i32;
+            let pr = (p as usize / n) as i32;
+            let pc = (p as usize % n) as i32;
+            let dr = (pr - cr).signum();
+            let dc = (pc - cc).signum();
+            let mut rr = cr; let mut cc2 = cc;
+            while rr != pr || cc2 != pc {
+                tmp.push((rr as usize * n + cc2 as usize) as u32);
+                rr += dr; cc2 += dc;
+            }
+            cur = p;
+        }
+        tmp.reverse();
+        tmp
+    };
+
+    SearchResult {
+        nodes_explored: visited_order.len() as u32,
+        path_length: path.len() as u32,
+        found,
+        visited: visited_order,
+        path,
+    }
+}
+
+#[inline]
+fn chebyshev(idx: usize, n: usize, er: usize, ec: usize) -> u32 {
     let r = idx / n;
     let c = idx % n;
     let dr = if r > er { r - er } else { er - r };
     let dc = if c > ec { c - ec } else { ec - c };
-    (dr + dc) as u32
+    if dr > dc { dr as u32 } else { dc as u32 }
 }
 
 #[wasm_bindgen]
@@ -344,7 +504,7 @@ pub fn astar(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
 
     let mut heap: BinaryHeap<ANode> = BinaryHeap::new();
     g_score[start] = 0;
-    heap.push(ANode { f: manhattan(start, n, er, ec), g: 0, idx: start as u32 });
+    heap.push(ANode { f: chebyshev(start, n, er, ec), g: 0, idx: start as u32 });
 
     let mut found = false;
 
@@ -356,24 +516,22 @@ pub fn astar(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
 
         if i == end { found = true; break; }
 
-        let r = i / n;
-        let c = i % n;
+        let r = (i / n) as i32;
+        let c = (i % n) as i32;
         let ng = g_score[i] + 1;
-
-        let mut try_n = |ni: usize, prev: &mut [i32], g_score: &mut [u32], heap: &mut BinaryHeap<ANode>| {
-            if grid[ni] == WALL { return; }
+        for (dr, dc) in NEIGHBORS {
+            let nr = r + dr;
+            let nc = c + dc;
+            if nr < 0 || nc < 0 || nr >= n as i32 || nc >= n as i32 { continue; }
+            let ni = nr as usize * n + nc as usize;
+            if grid[ni] == WALL { continue; }
             if ng < g_score[ni] {
                 g_score[ni] = ng;
                 prev[ni] = i as i32;
-                let f = ng + manhattan(ni, n, er, ec);
+                let f = ng + chebyshev(ni, n, er, ec);
                 heap.push(ANode { f, g: ng, idx: ni as u32 });
             }
-        };
-
-        if r > 0 { try_n(i - n, &mut prev, &mut g_score, &mut heap); }
-        if r + 1 < n { try_n(i + n, &mut prev, &mut g_score, &mut heap); }
-        if c > 0 { try_n(i - 1, &mut prev, &mut g_score, &mut heap); }
-        if c + 1 < n { try_n(i + 1, &mut prev, &mut g_score, &mut heap); }
+        }
     }
 
     let path = reconstruct(&prev, end, found);

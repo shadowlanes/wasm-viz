@@ -20,6 +20,8 @@ export function bidijkstra(grid: Uint8Array, n: number, start: number, end: numb
 
 export function dijkstra(grid: Uint8Array, n: number, start: number, end: number): SearchResult;
 
+export function jps(grid: Uint8Array, n: number, start: number, end: number): SearchResult;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -35,6 +37,7 @@ export interface InitOutput {
     readonly bfs: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly bidijkstra: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly dijkstra: (a: number, b: number, c: number, d: number, e: number) => number;
+    readonly jps: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly searchresult_path: (a: number) => [number, number];
     readonly searchresult_visited: (a: number) => [number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;

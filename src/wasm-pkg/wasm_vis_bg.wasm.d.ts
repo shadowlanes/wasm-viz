@@ -12,6 +12,7 @@ export const astar: (a: number, b: number, c: number, d: number, e: number) => n
 export const bfs: (a: number, b: number, c: number, d: number, e: number) => number;
 export const bidijkstra: (a: number, b: number, c: number, d: number, e: number) => number;
 export const dijkstra: (a: number, b: number, c: number, d: number, e: number) => number;
+export const jps: (a: number, b: number, c: number, d: number, e: number) => number;
 export const searchresult_path: (a: number) => [number, number];
 export const searchresult_visited: (a: number) => [number, number];
 export const __wbindgen_externrefs: WebAssembly.Table;

@@ -65,6 +65,7 @@ async function start() {
     algorithm === 'astar' ? 'A*' :
     algorithm === 'bfs' ? 'BFS' :
     algorithm === 'bidijkstra' ? 'Bi-Dijkstra' :
+    algorithm === 'jps' ? 'JPS' :
     'Dijkstra';
 
   const grid = generateGrid(n, density, seed);

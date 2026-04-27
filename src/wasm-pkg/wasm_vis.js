@@ -133,6 +133,20 @@ export function dijkstra(grid, n, start, end) {
     const ret = wasm.dijkstra(ptr0, len0, n, start, end);
     return SearchResult.__wrap(ret);
 }
+
+/**
+ * @param {Uint8Array} grid
+ * @param {number} n
+ * @param {number} start
+ * @param {number} end
+ * @returns {SearchResult}
+ */
+export function jps(grid, n, start, end) {
+    const ptr0 = passArray8ToWasm0(grid, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.jps(ptr0, len0, n, start, end);
+    return SearchResult.__wrap(ret);
+}
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
