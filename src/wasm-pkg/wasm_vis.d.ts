@@ -22,6 +22,8 @@ export function dijkstra(grid: Uint8Array, n: number, start: number, end: number
 
 export function jps(grid: Uint8Array, n: number, start: number, end: number): SearchResult;
 
+export function theta(grid: Uint8Array, n: number, start: number, end: number): SearchResult;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -40,6 +42,7 @@ export interface InitOutput {
     readonly jps: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly searchresult_path: (a: number) => [number, number];
     readonly searchresult_visited: (a: number) => [number, number];
+    readonly theta: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;

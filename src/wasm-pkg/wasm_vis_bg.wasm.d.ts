@@ -15,6 +15,7 @@ export const dijkstra: (a: number, b: number, c: number, d: number, e: number) =
 export const jps: (a: number, b: number, c: number, d: number, e: number) => number;
 export const searchresult_path: (a: number) => [number, number];
 export const searchresult_visited: (a: number) => [number, number];
+export const theta: (a: number, b: number, c: number, d: number, e: number) => number;
 export const __wbindgen_externrefs: WebAssembly.Table;
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_free: (a: number, b: number, c: number) => void;

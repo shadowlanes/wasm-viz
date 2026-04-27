@@ -302,6 +302,140 @@ pub fn bfs(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
     }
 }
 
+// --- Theta* (any-angle A* with line-of-sight parent shortcuts) ---
+//
+// Same expansion as A* but when relaxing neighbor s of current x, attempt to
+// re-parent s to prev[x] directly if line-of-sight from prev[x] to s is clear.
+// Path reconstructs as a sequence of waypoints connected by Bresenham lines —
+// visually smoother than the staircase paths A* produces.
+
+fn line_of_sight(grid: &[u8], n: usize, r0: i32, c0: i32, r1: i32, c1: i32) -> bool {
+    let dr = (r1 - r0).abs();
+    let dc = (c1 - c0).abs();
+    let sr = if r0 < r1 { 1 } else if r0 > r1 { -1 } else { 0 };
+    let sc = if c0 < c1 { 1 } else if c0 > c1 { -1 } else { 0 };
+    let mut r = r0;
+    let mut c = c0;
+    let mut err = dr - dc;
+    loop {
+        if r < 0 || c < 0 || r >= n as i32 || c >= n as i32 { return false; }
+        if grid[r as usize * n + c as usize] == WALL { return false; }
+        if r == r1 && c == c1 { return true; }
+        let e2 = 2 * err;
+        if e2 > -dc { err -= dc; r += sr; }
+        if e2 < dr { err += dr; c += sc; }
+    }
+}
+
+#[wasm_bindgen]
+pub fn theta(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
+    let n = n as usize;
+    let total = n * n;
+    let start = start as usize;
+    let end = end as usize;
+    let er = (end / n) as i32;
+    let ec = (end % n) as i32;
+
+    let mut g_score: Vec<u32> = vec![u32::MAX; total];
+    let mut prev: Vec<i32> = vec![-1; total];
+    let mut visited_order: Vec<u32> = Vec::with_capacity(total / 2);
+    let mut closed: Vec<bool> = vec![false; total];
+
+    let mut heap: BinaryHeap<ANode> = BinaryHeap::new();
+    g_score[start] = 0;
+    heap.push(ANode { f: chebyshev(start, n, er as usize, ec as usize), g: 0, idx: start as u32 });
+
+    let mut found = false;
+
+    while let Some(ANode { f: _, g: _, idx }) = heap.pop() {
+        let i = idx as usize;
+        if closed[i] { continue; }
+        closed[i] = true;
+        visited_order.push(idx);
+        if i == end { found = true; break; }
+
+        let r = (i / n) as i32;
+        let c = (i % n) as i32;
+        let p = prev[i];
+        for (dr, dc) in NEIGHBORS {
+            let nr = r + dr;
+            let nc = c + dc;
+            if nr < 0 || nc < 0 || nr >= n as i32 || nc >= n as i32 { continue; }
+            let ni = nr as usize * n + nc as usize;
+            if grid[ni] == WALL { continue; }
+            // Path 2: try re-parenting to prev[i] if LoS clear.
+            let (ng, par): (u32, i32) = if p >= 0 {
+                let pr = (p as usize / n) as i32;
+                let pc = (p as usize % n) as i32;
+                if line_of_sight(grid, n, pr, pc, nr, nc) {
+                    let dy = (pr - nr).abs();
+                    let dx = (pc - nc).abs();
+                    let cheb = if dy > dx { dy as u32 } else { dx as u32 };
+                    (g_score[p as usize] + cheb, p)
+                } else {
+                    (g_score[i] + 1, i as i32)
+                }
+            } else {
+                (g_score[i] + 1, i as i32)
+            };
+            if ng < g_score[ni] {
+                g_score[ni] = ng;
+                prev[ni] = par;
+                let h = chebyshev(ni, n, er as usize, ec as usize);
+                heap.push(ANode { f: ng + h, g: ng, idx: ni as u32 });
+            }
+        }
+    }
+
+    // Path reconstruction: collect waypoints from start to end, then walk
+    // Bresenham between consecutive waypoints to produce dense cell list.
+    let path = if !found {
+        Vec::new()
+    } else {
+        let mut waypoints: Vec<i32> = Vec::new();
+        let mut cur = end as i32;
+        while cur != -1 {
+            waypoints.push(cur);
+            cur = prev[cur as usize];
+        }
+        waypoints.reverse();
+        let mut tmp: Vec<u32> = Vec::new();
+        for w in 0..waypoints.len() {
+            let cur_idx = waypoints[w] as usize;
+            if w == 0 {
+                tmp.push(cur_idx as u32);
+                continue;
+            }
+            let prev_wp = waypoints[w - 1] as usize;
+            let r0 = (prev_wp / n) as i32;
+            let c0 = (prev_wp % n) as i32;
+            let r1 = (cur_idx / n) as i32;
+            let c1 = (cur_idx % n) as i32;
+            let dr = (r1 - r0).abs();
+            let dc = (c1 - c0).abs();
+            let sr = if r0 < r1 { 1 } else if r0 > r1 { -1 } else { 0 };
+            let sc = if c0 < c1 { 1 } else if c0 > c1 { -1 } else { 0 };
+            let mut r = r0; let mut c = c0;
+            let mut err = dr - dc;
+            while r != r1 || c != c1 {
+                let e2 = 2 * err;
+                if e2 > -dc { err -= dc; r += sr; }
+                if e2 < dr { err += dr; c += sc; }
+                tmp.push((r as usize * n + c as usize) as u32);
+            }
+        }
+        tmp
+    };
+
+    SearchResult {
+        nodes_explored: visited_order.len() as u32,
+        path_length: path.len() as u32,
+        found,
+        visited: visited_order,
+        path,
+    }
+}
+
 // --- Jump Point Search (8-connected, unit-cost Chebyshev, corner cutting allowed) ---
 
 #[inline]

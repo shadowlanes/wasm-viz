@@ -17,6 +17,7 @@ self.onmessage = (e) => {
     algorithm === 'bfs' ? bfs :
     algorithm === 'bidijkstra' ? bidijkstra :
     algorithm === 'jps' ? jps :
+    algorithm === 'theta' ? theta :
     dijkstra;
   const t0 = performance.now();
   const result = fn(grid, n, start, end);
@@ -285,6 +286,127 @@ function astar(grid, n, start, end) {
     found,
     visited: visited.slice(0, visitedCount),
     path: reconstructPath(prev, end, found),
+  };
+}
+
+// --- Theta* (any-angle A* with line-of-sight parent shortcuts) ---
+
+function lineOfSight(grid, n, r0, c0, r1, c1) {
+  const dr = Math.abs(r1 - r0);
+  const dc = Math.abs(c1 - c0);
+  const sr = r0 < r1 ? 1 : (r0 > r1 ? -1 : 0);
+  const sc = c0 < c1 ? 1 : (c0 > c1 ? -1 : 0);
+  let r = r0, c = c0;
+  let err = dr - dc;
+  while (true) {
+    if (r < 0 || c < 0 || r >= n || c >= n) return false;
+    if (grid[r * n + c]) return false;
+    if (r === r1 && c === c1) return true;
+    const e2 = 2 * err;
+    if (e2 > -dc) { err -= dc; r += sr; }
+    if (e2 < dr) { err += dr; c += sc; }
+  }
+}
+
+function theta(grid, n, start, end) {
+  const total = n * n;
+  const gScore = new Uint32Array(total).fill(0xffffffff);
+  const prev = new Int32Array(total).fill(-1);
+  const closed = new Uint8Array(total);
+  const visited = new Uint32Array(total);
+  let visitedCount = 0;
+
+  const er = (end / n) | 0;
+  const ec = end - er * n;
+  const h = (idx) => {
+    const r = (idx / n) | 0;
+    const c = idx - r * n;
+    const dr = r > er ? r - er : er - r;
+    const dc = c > ec ? c - ec : ec - c;
+    return dr > dc ? dr : dc;
+  };
+
+  const heap = new MinHeap();
+  gScore[start] = 0;
+  heap.push(h(start), start, -start);
+
+  let found = false;
+
+  while (heap.size() > 0) {
+    const { idx } = heap.pop();
+    if (closed[idx]) continue;
+    closed[idx] = 1;
+    visited[visitedCount++] = idx;
+    if (idx === end) { found = true; break; }
+
+    const r = (idx / n) | 0;
+    const c = idx - r * n;
+    const p = prev[idx];
+    let pr = -1, pc = -1;
+    if (p >= 0) { pr = (p / n) | 0; pc = p - pr * n; }
+    for (let k = 0; k < 8; k++) {
+      const nr = r + NDR[k];
+      const nc = c + NDC[k];
+      if (nr < 0 || nc < 0 || nr >= n || nc >= n) continue;
+      const ni = nr * n + nc;
+      if (grid[ni]) continue;
+      let ng, par;
+      if (p >= 0 && lineOfSight(grid, n, pr, pc, nr, nc)) {
+        const dy = Math.abs(pr - nr);
+        const dx = Math.abs(pc - nc);
+        const cheb = dy > dx ? dy : dx;
+        ng = gScore[p] + cheb;
+        par = p;
+      } else {
+        ng = gScore[idx] + 1;
+        par = idx;
+      }
+      if (ng < gScore[ni]) {
+        gScore[ni] = ng;
+        prev[ni] = par;
+        heap.push(ng + h(ni), ni, -ng * total - ni);
+      }
+    }
+  }
+
+  let path;
+  if (!found) {
+    path = new Uint32Array(0);
+  } else {
+    const waypoints = [];
+    let cur = end;
+    while (cur !== -1) { waypoints.push(cur); cur = prev[cur]; }
+    waypoints.reverse();
+    const tmp = [];
+    for (let w = 0; w < waypoints.length; w++) {
+      const ci = waypoints[w];
+      if (w === 0) { tmp.push(ci); continue; }
+      const pi = waypoints[w - 1];
+      const r0 = (pi / n) | 0;
+      const c0 = pi - r0 * n;
+      const r1 = (ci / n) | 0;
+      const c1 = ci - r1 * n;
+      const dr = Math.abs(r1 - r0);
+      const dc = Math.abs(c1 - c0);
+      const sr = r0 < r1 ? 1 : (r0 > r1 ? -1 : 0);
+      const sc = c0 < c1 ? 1 : (c0 > c1 ? -1 : 0);
+      let rr = r0, cc = c0;
+      let err = dr - dc;
+      while (rr !== r1 || cc !== c1) {
+        const e2 = 2 * err;
+        if (e2 > -dc) { err -= dc; rr += sr; }
+        if (e2 < dr) { err += dr; cc += sc; }
+        tmp.push(rr * n + cc);
+      }
+    }
+    path = new Uint32Array(tmp);
+  }
+
+  return {
+    nodesExplored: visitedCount,
+    found,
+    visited: visited.slice(0, visitedCount),
+    path,
   };
 }
 
