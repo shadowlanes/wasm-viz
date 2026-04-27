@@ -4,9 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "build:wasm": "cd wasm && wasm-pack build --target web --out-dir ../src/wasm-pkg --release",
+    "build:wasm": "cd wasm && wasm-pack build --target web --out-dir ../src/wasm-pkg --release && rm -f ../src/wasm-pkg/.gitignore",
     "dev": "npm run build:wasm && vite",
     "build": "npm run build:wasm && vite build",
+    "build:web": "vite build",
     "preview": "vite preview"
   },
   "devDependencies": {

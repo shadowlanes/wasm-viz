@@ -78,6 +78,18 @@ WASM's relative advantage tends to grow on tighter inner loops (A\* with a heuri
     └── src/lib.rs          # Rust Dijkstra + A* exposed via wasm-bindgen
 ```
 
+## Deploying to Cloudflare Pages
+
+Cloudflare Pages serves `.wasm` with the correct `application/wasm` MIME and supports Web Workers, so this app runs as a plain static deploy. The pre-built WASM artifact is checked into `src/wasm-pkg/` so the Pages build doesn't need a Rust toolchain.
+
+In the Cloudflare dashboard, create a Pages project pointing at this repo with:
+
+- **Build command:** `npm run build:web`
+- **Build output directory:** `dist`
+- **Environment variable:** `NODE_VERSION=20`
+
+After every local change to `wasm/src/lib.rs`, run `npm run build:wasm` and commit the regenerated `src/wasm-pkg/` files alongside your source changes — that's what Cloudflare will serve.
+
 ## What this project is *not*
 
 - Not a "WASM is always faster" demo. At small sizes the difference vanishes; for some workloads the postMessage / instantiation overhead dominates.
