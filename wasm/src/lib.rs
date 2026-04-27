@@ -57,6 +57,9 @@ pub struct SearchResult {
     pub found: bool,
     visited: Vec<u32>,
     path: Vec<u32>,
+    // Sparse parent-chain waypoints (only populated by Theta*). For other
+    // algorithms this is empty and the renderer falls back to dense path.
+    waypoints: Vec<u32>,
 }
 
 #[wasm_bindgen]
@@ -65,6 +68,8 @@ impl SearchResult {
     pub fn visited(&self) -> Vec<u32> { self.visited.clone() }
     #[wasm_bindgen(getter)]
     pub fn path(&self) -> Vec<u32> { self.path.clone() }
+    #[wasm_bindgen(getter)]
+    pub fn waypoints(&self) -> Vec<u32> { self.waypoints.clone() }
 }
 
 fn reconstruct(prev: &[i32], end: usize, found: bool) -> Vec<u32> {
@@ -129,6 +134,7 @@ pub fn dijkstra(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
         found,
         visited: visited_order,
         path,
+        waypoints: Vec::new(),
     }
 }
 
@@ -178,6 +184,7 @@ pub fn bidijkstra(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
             found: true,
             visited: vec![start as u32],
             path: vec![start as u32],
+            waypoints: Vec::new(),
         };
     }
 
@@ -254,6 +261,7 @@ pub fn bidijkstra(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
         found: meet != -1,
         visited: visited_order,
         path,
+        waypoints: Vec::new(),
     }
 }
 
@@ -299,6 +307,7 @@ pub fn bfs(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
         found,
         visited: visited_order,
         path,
+        waypoints: Vec::new(),
     }
 }
 
@@ -389,24 +398,24 @@ pub fn theta(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
 
     // Path reconstruction: collect waypoints from start to end, then walk
     // Bresenham between consecutive waypoints to produce dense cell list.
-    let path = if !found {
-        Vec::new()
+    let (path, waypoints): (Vec<u32>, Vec<u32>) = if !found {
+        (Vec::new(), Vec::new())
     } else {
-        let mut waypoints: Vec<i32> = Vec::new();
+        let mut wps: Vec<u32> = Vec::new();
         let mut cur = end as i32;
         while cur != -1 {
-            waypoints.push(cur);
+            wps.push(cur as u32);
             cur = prev[cur as usize];
         }
-        waypoints.reverse();
+        wps.reverse();
         let mut tmp: Vec<u32> = Vec::new();
-        for w in 0..waypoints.len() {
-            let cur_idx = waypoints[w] as usize;
+        for w in 0..wps.len() {
+            let cur_idx = wps[w] as usize;
             if w == 0 {
                 tmp.push(cur_idx as u32);
                 continue;
             }
-            let prev_wp = waypoints[w - 1] as usize;
+            let prev_wp = wps[w - 1] as usize;
             let r0 = (prev_wp / n) as i32;
             let c0 = (prev_wp % n) as i32;
             let r1 = (cur_idx / n) as i32;
@@ -424,7 +433,7 @@ pub fn theta(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
                 tmp.push((r as usize * n + c as usize) as u32);
             }
         }
-        tmp
+        (tmp, wps)
     };
 
     SearchResult {
@@ -433,6 +442,7 @@ pub fn theta(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
         found,
         visited: visited_order,
         path,
+        waypoints,
     }
 }
 
@@ -610,6 +620,7 @@ pub fn jps(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
         found,
         visited: visited_order,
         path,
+        waypoints: Vec::new(),
     }
 }
 
@@ -675,5 +686,6 @@ pub fn astar(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
         found,
         visited: visited_order,
         path,
+        waypoints: Vec::new(),
     }
 }

@@ -23,6 +23,7 @@ self.onmessage = (e) => {
   const result = fn(grid, n, start, end);
   const t1 = performance.now();
 
+  const waypoints = result.waypoints || new Uint32Array(0);
   self.postMessage(
     {
       timeMs: t1 - t0,
@@ -31,8 +32,9 @@ self.onmessage = (e) => {
       found: result.found,
       visited: result.visited,
       path: result.path,
+      waypoints,
     },
-    [result.visited.buffer, result.path.buffer]
+    [result.visited.buffer, result.path.buffer, waypoints.buffer]
   );
 };
 
@@ -369,14 +371,16 @@ function theta(grid, n, start, end) {
     }
   }
 
-  let path;
+  let path, waypointsArr;
   if (!found) {
     path = new Uint32Array(0);
+    waypointsArr = new Uint32Array(0);
   } else {
     const waypoints = [];
     let cur = end;
     while (cur !== -1) { waypoints.push(cur); cur = prev[cur]; }
     waypoints.reverse();
+    waypointsArr = new Uint32Array(waypoints);
     const tmp = [];
     for (let w = 0; w < waypoints.length; w++) {
       const ci = waypoints[w];
@@ -407,6 +411,7 @@ function theta(grid, n, start, end) {
     found,
     visited: visited.slice(0, visitedCount),
     path,
+    waypoints: waypointsArr,
   };
 }
 

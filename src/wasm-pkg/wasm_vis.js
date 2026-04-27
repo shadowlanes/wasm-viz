@@ -58,6 +58,15 @@ export class SearchResult {
         return v1;
     }
     /**
+     * @returns {Uint32Array}
+     */
+    get waypoints() {
+        const ret = wasm.searchresult_waypoints(this.__wbg_ptr);
+        var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
      * @param {boolean} arg0
      */
     set found(arg0) {

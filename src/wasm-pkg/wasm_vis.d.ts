@@ -10,6 +10,7 @@ export class SearchResult {
     path_length: number;
     readonly path: Uint32Array;
     readonly visited: Uint32Array;
+    readonly waypoints: Uint32Array;
 }
 
 export function astar(grid: Uint8Array, n: number, start: number, end: number): SearchResult;
@@ -42,6 +43,7 @@ export interface InitOutput {
     readonly jps: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly searchresult_path: (a: number) => [number, number];
     readonly searchresult_visited: (a: number) => [number, number];
+    readonly searchresult_waypoints: (a: number) => [number, number];
     readonly theta: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;

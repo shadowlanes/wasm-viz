@@ -125,5 +125,5 @@ async function finishOne(label, r, renderer, statEl, start, end) {
     ? `Time: ${r.timeMs.toFixed(2)}ms | Nodes: ${r.nodesExplored} | Path: ${r.pathLength}`
     : `Time: ${r.timeMs.toFixed(2)}ms | Nodes: ${r.nodesExplored} | No path`;
   const renderMs = Math.max(RENDER_MIN_MS, Math.min(RENDER_MAX_MS, r.timeMs * RENDER_SCALE));
-  await renderer.animate(r.visited, r.path, start, end, renderMs);
+  await renderer.animate(r.visited, r.path, start, end, renderMs, r.waypoints);
 }

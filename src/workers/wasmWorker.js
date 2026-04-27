@@ -21,6 +21,7 @@ self.onmessage = async (e) => {
 
   const visited = new Uint32Array(result.visited);
   const path = new Uint32Array(result.path);
+  const waypoints = new Uint32Array(result.waypoints);
   const nodesExplored = result.nodes_explored;
   const pathLength = result.path_length;
   const found = result.found;
@@ -34,7 +35,8 @@ self.onmessage = async (e) => {
       found,
       visited,
       path,
+      waypoints,
     },
-    [visited.buffer, path.buffer]
+    [visited.buffer, path.buffer, waypoints.buffer]
   );
 };

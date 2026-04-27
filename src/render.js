@@ -33,7 +33,10 @@ export class GridRenderer {
   // Then draw the final path. Resolves when done.
   // msTotal paces the animation in wall-clock ms; pass algorithm time scaled
   // up so faster runs visibly finish sooner.
-  async animate(visited, path, start, end, msTotal = 1500) {
+  // If waypoints is non-empty, the path is drawn as a stroked polyline
+  // between waypoints (true any-angle lines for Theta*) instead of being
+  // painted cell-by-cell.
+  async animate(visited, path, start, end, msTotal = 1500, waypoints = null) {
     const px = this.pixels;
     const total = visited.length;
     if (total === 0) return;
@@ -54,12 +57,46 @@ export class GridRenderer {
       requestAnimationFrame(step);
     });
 
-    // Thicken the path by painting a 3x3 block per cell — visually equivalent
-    // to using a bolder stroke. Endpoints are painted last so they stay on top.
-    for (let k = 0; k < path.length; k++) this._splat3(path[k], COLOR_PATH);
-    this._splat3(start, COLOR_ENDPOINT);
-    this._splat3(end, COLOR_ENDPOINT);
-    this.ctx.putImageData(this.image, 0, 0);
+    // Endpoints painted via splat3 regardless. Non-Theta runs render the
+    // path as a 1-cell-wide stepped line (the visible staircase). Theta*
+    // supplies waypoints and gets a smooth stroked polyline instead — the
+    // contrast vs the staircase is the visual point of any-angle pathing.
+    if (waypoints && waypoints.length > 1) {
+      this._splat3(start, COLOR_ENDPOINT);
+      this._splat3(end, COLOR_ENDPOINT);
+      this.ctx.putImageData(this.image, 0, 0);
+      this._strokeWaypoints(waypoints);
+    } else {
+      for (let k = 0; k < path.length; k++) px[path[k]] = COLOR_PATH;
+      this._splat3(start, COLOR_ENDPOINT);
+      this._splat3(end, COLOR_ENDPOINT);
+      this.ctx.putImageData(this.image, 0, 0);
+    }
+  }
+
+  // Draw the path as a continuous stroked polyline between waypoints. Each
+  // waypoint cell index maps to canvas coordinate (col + 0.5, row + 0.5) so the
+  // line passes through cell centers. Stroke is wide and uses the path color.
+  _strokeWaypoints(waypoints) {
+    const ctx = this.ctx;
+    const n = this.n;
+    ctx.save();
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#E69F00';
+    ctx.beginPath();
+    for (let i = 0; i < waypoints.length; i++) {
+      const idx = waypoints[i];
+      const r = (idx / n) | 0;
+      const c = idx - r * n;
+      const x = c + 0.5;
+      const y = r + 0.5;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   // Paint a 3x3 patch centered at idx so endpoints are also distinguishable by
