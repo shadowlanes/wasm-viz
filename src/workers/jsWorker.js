@@ -10,6 +10,7 @@ self.onmessage = (e) => {
   const fn =
     algorithm === 'astar' ? astar :
     algorithm === 'bfs' ? bfs :
+    algorithm === 'bidijkstra' ? bidijkstra :
     dijkstra;
   const t0 = performance.now();
   const result = fn(grid, n, start, end);
@@ -47,7 +48,7 @@ function dijkstra(grid, n, start, end) {
 
   const heap = new MinHeap();
   dist[start] = 0;
-  heap.push(0, start);
+  heap.push(0, start, start);
 
   let found = false;
 
@@ -66,19 +67,19 @@ function dijkstra(grid, n, start, end) {
 
     if (r > 0) {
       const ni = idx - n;
-      if (!grid[ni] && nd < dist[ni]) { dist[ni] = nd; prev[ni] = idx; heap.push(nd, ni); }
+      if (!grid[ni] && nd < dist[ni]) { dist[ni] = nd; prev[ni] = idx; heap.push(nd, ni, ni); }
     }
     if (r < n - 1) {
       const ni = idx + n;
-      if (!grid[ni] && nd < dist[ni]) { dist[ni] = nd; prev[ni] = idx; heap.push(nd, ni); }
+      if (!grid[ni] && nd < dist[ni]) { dist[ni] = nd; prev[ni] = idx; heap.push(nd, ni, ni); }
     }
     if (c > 0) {
       const ni = idx - 1;
-      if (!grid[ni] && nd < dist[ni]) { dist[ni] = nd; prev[ni] = idx; heap.push(nd, ni); }
+      if (!grid[ni] && nd < dist[ni]) { dist[ni] = nd; prev[ni] = idx; heap.push(nd, ni, ni); }
     }
     if (c < n - 1) {
       const ni = idx + 1;
-      if (!grid[ni] && nd < dist[ni]) { dist[ni] = nd; prev[ni] = idx; heap.push(nd, ni); }
+      if (!grid[ni] && nd < dist[ni]) { dist[ni] = nd; prev[ni] = idx; heap.push(nd, ni, ni); }
     }
   }
 
@@ -87,6 +88,111 @@ function dijkstra(grid, n, start, end) {
     found,
     visited: visited.slice(0, visitedCount),
     path: reconstructPath(prev, end, found),
+  };
+}
+
+function expandDir(grid, n, idx, cost, dist, prev, heap, otherDist, state) {
+  const r = (idx / n) | 0;
+  const c = idx - r * n;
+  const nd = cost + 1;
+  const ns = [
+    r > 0 ? idx - n : -1,
+    r < n - 1 ? idx + n : -1,
+    c > 0 ? idx - 1 : -1,
+    c < n - 1 ? idx + 1 : -1,
+  ];
+  for (let k = 0; k < 4; k++) {
+    const ni = ns[k];
+    if (ni < 0 || grid[ni]) continue;
+    if (nd < dist[ni]) { dist[ni] = nd; prev[ni] = idx; heap.push(nd, ni, ni); }
+    if (otherDist[ni] !== 0xffffffff) {
+      const t = dist[ni] + otherDist[ni];
+      if (t < state.mu) { state.mu = t; state.meet = ni; }
+    }
+  }
+}
+
+function bidijkstra(grid, n, start, end) {
+  if (start === end) {
+    const v = new Uint32Array([start]);
+    return { nodesExplored: 1, found: true, visited: v, path: new Uint32Array([start]) };
+  }
+  const total = n * n;
+  const distF = new Uint32Array(total).fill(0xffffffff);
+  const distB = new Uint32Array(total).fill(0xffffffff);
+  const prevF = new Int32Array(total).fill(-1);
+  const prevB = new Int32Array(total).fill(-1);
+  const closedF = new Uint8Array(total);
+  const closedB = new Uint8Array(total);
+  const visited = new Uint32Array(total * 2);
+  let visitedCount = 0;
+
+  const heapF = new MinHeap();
+  const heapB = new MinHeap();
+  distF[start] = 0;
+  distB[end] = 0;
+  heapF.push(0, start, start);
+  heapB.push(0, end, end);
+
+  const state = { mu: 0xffffffff, meet: -1 };
+  let turn = 0;
+
+  while (true) {
+    if (heapF.size() === 0 && heapB.size() === 0) break;
+    const topF = heapF.size() ? heapF.cost[0] : 0xffffffff;
+    const topB = heapB.size() ? heapB.cost[0] : 0xffffffff;
+    // Use the same saturating sum semantics as Rust to avoid 32-bit overflow.
+    const sum = topF === 0xffffffff || topB === 0xffffffff
+      ? 0xffffffff
+      : (topF + topB) >>> 0;
+    if (sum >= state.mu) break;
+
+    const useF = heapF.size() === 0 ? false :
+                 heapB.size() === 0 ? true :
+                 turn === 0;
+    turn ^= 1;
+
+    if (useF) {
+      const { cost, idx } = heapF.pop();
+      if (closedF[idx]) continue;
+      closedF[idx] = 1;
+      visited[visitedCount++] = idx;
+      if (distB[idx] !== 0xffffffff) {
+        const t = cost + distB[idx];
+        if (t < state.mu) { state.mu = t; state.meet = idx; }
+      }
+      expandDir(grid, n, idx, cost, distF, prevF, heapF, distB, state);
+    } else {
+      const { cost, idx } = heapB.pop();
+      if (closedB[idx]) continue;
+      closedB[idx] = 1;
+      visited[visitedCount++] = idx;
+      if (distF[idx] !== 0xffffffff) {
+        const t = cost + distF[idx];
+        if (t < state.mu) { state.mu = t; state.meet = idx; }
+      }
+      expandDir(grid, n, idx, cost, distB, prevB, heapB, distF, state);
+    }
+  }
+
+  let path;
+  if (state.meet === -1) {
+    path = new Uint32Array(0);
+  } else {
+    const tmp = [];
+    let cur = state.meet;
+    while (cur !== -1) { tmp.push(cur); cur = prevF[cur]; }
+    tmp.reverse();
+    cur = prevB[state.meet];
+    while (cur !== -1) { tmp.push(cur); cur = prevB[cur]; }
+    path = new Uint32Array(tmp);
+  }
+
+  return {
+    nodesExplored: visitedCount,
+    found: state.meet !== -1,
+    visited: visited.slice(0, visitedCount),
+    path,
   };
 }
 

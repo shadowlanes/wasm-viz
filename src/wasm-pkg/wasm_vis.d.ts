@@ -16,6 +16,8 @@ export function astar(grid: Uint8Array, n: number, start: number, end: number): 
 
 export function bfs(grid: Uint8Array, n: number, start: number, end: number): SearchResult;
 
+export function bidijkstra(grid: Uint8Array, n: number, start: number, end: number): SearchResult;
+
 export function dijkstra(grid: Uint8Array, n: number, start: number, end: number): SearchResult;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -31,6 +33,7 @@ export interface InitOutput {
     readonly __wbg_set_searchresult_path_length: (a: number, b: number) => void;
     readonly astar: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly bfs: (a: number, b: number, c: number, d: number, e: number) => number;
+    readonly bidijkstra: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly dijkstra: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly searchresult_path: (a: number) => [number, number];
     readonly searchresult_visited: (a: number) => [number, number];

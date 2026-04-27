@@ -113,6 +113,20 @@ export function bfs(grid, n, start, end) {
  * @param {number} end
  * @returns {SearchResult}
  */
+export function bidijkstra(grid, n, start, end) {
+    const ptr0 = passArray8ToWasm0(grid, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.bidijkstra(ptr0, len0, n, start, end);
+    return SearchResult.__wrap(ret);
+}
+
+/**
+ * @param {Uint8Array} grid
+ * @param {number} n
+ * @param {number} start
+ * @param {number} end
+ * @returns {SearchResult}
+ */
 export function dijkstra(grid, n, start, end) {
     const ptr0 = passArray8ToWasm0(grid, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
