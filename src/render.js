@@ -1,11 +1,14 @@
 // Renders grid + visited + path to a canvas using an ImageData backbuffer.
 // Colors are written as 32-bit values for speed.
 
-const COLOR_EMPTY = 0xffffffff; // white (RGBA little-endian: AABBGGRR)
-const COLOR_WALL = 0xff111111;
-const COLOR_VISITED = 0xffe07a3a; // blue-ish (BGR: 3A 7A E0 -> #3A7AE0)
-const COLOR_PATH = 0xff00cc44; // green
-const COLOR_ENDPOINT = 0xff2a2aff; // red-ish
+// Okabe–Ito palette: sky blue (visited) + orange (path) + vermillion (endpoints)
+// is distinguishable for the three common color-vision deficiencies. Stored as
+// 0xAA_BB_GG_RR to match Uint32Array view of RGBA ImageData on little-endian.
+const COLOR_EMPTY = 0xffffffff;     // white
+const COLOR_WALL = 0xff111111;      // near-black
+const COLOR_VISITED = 0xffe9b456;   // #56B4E9 sky blue
+const COLOR_PATH = 0xff009fe6;      // #E69F00 orange
+const COLOR_ENDPOINT = 0xff005ed5;  // #D55E00 vermillion
 
 export class GridRenderer {
   constructor(canvas, n) {
@@ -51,10 +54,30 @@ export class GridRenderer {
       requestAnimationFrame(step);
     });
 
-    for (let k = 0; k < path.length; k++) px[path[k]] = COLOR_PATH;
-    px[start] = COLOR_ENDPOINT;
-    px[end] = COLOR_ENDPOINT;
+    // Thicken the path by painting a 3x3 block per cell — visually equivalent
+    // to using a bolder stroke. Endpoints are painted last so they stay on top.
+    for (let k = 0; k < path.length; k++) this._splat3(path[k], COLOR_PATH);
+    this._splat3(start, COLOR_ENDPOINT);
+    this._splat3(end, COLOR_ENDPOINT);
     this.ctx.putImageData(this.image, 0, 0);
+  }
+
+  // Paint a 3x3 patch centered at idx so endpoints are also distinguishable by
+  // shape, not only hue.
+  _splat3(idx, color) {
+    const px = this.pixels;
+    const n = this.n;
+    const r = (idx / n) | 0;
+    const c = idx - r * n;
+    for (let dr = -1; dr <= 1; dr++) {
+      const rr = r + dr;
+      if (rr < 0 || rr >= n) continue;
+      for (let dc = -1; dc <= 1; dc++) {
+        const cc = c + dc;
+        if (cc < 0 || cc >= n) continue;
+        px[rr * n + cc] = color;
+      }
+    }
   }
 
   clear() {
