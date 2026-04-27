@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JS vs WASM — Pathfinding Benchmark</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="controls">
+      <h1>JS vs WASM Pathfinding</h1>
+      <label>Grid size <input id="gridSize" type="number" min="50" max="2000" step="50" value="500" /></label>
+      <label>Algorithm
+        <select id="algo">
+          <option value="dijkstra">Dijkstra</option>
+          <option value="astar">A*</option>
+        </select>
+      </label>
+      <label>Wall density
+        <input id="density" type="range" min="0" max="40" step="1" value="25" />
+        <span id="densityVal">25%</span>
+      </label>
+      <button id="startBtn">Start</button>
+      <button id="resetBtn">Reset</button>
+      <a href="#" id="methodologyLink" class="methodology-link">Methodology</a>
+    </header>
+
+    <dialog id="methodologyDialog">
+      <h3>Methodology</h3>
+      <p><strong>The numbers are the truth, the animation is a slowed-down replay.</strong></p>
+      <p>
+        The reported <code>Time</code> is measured inside each Web Worker around the algorithm
+        only — from <code>performance.now()</code> immediately before the call to immediately
+        after it returns. It excludes worker startup, postMessage transfer, and rendering.
+      </p>
+      <p>
+        The visited cells you see filling each canvas are not painted in real time. The worker
+        runs the full search first and returns the entire <code>visited</code> array; the main
+        thread then animates that array onto the canvas <em>proportional to</em> the measured
+        algorithm time, scaled up by a constant factor so millisecond-scale runs are watchable
+        (currently 50×, clamped to 150ms–5000ms). Both panes use the same scale, so the relative
+        wall-clock duration on screen reflects the ratio of the underlying algorithm times.
+      </p>
+      <p>
+        Both implementations operate on identical grid bytes (seeded <code>mulberry32</code>),
+        identical neighbor order (up, down, left, right), identical heap discipline, and the
+        same Manhattan heuristic for A*. The node count printed under each canvas is the
+        same on both sides for the same seed — that's the fairness check.
+      </p>
+      <p><button id="methodologyCloseBtn">Close</button></p>
+    </dialog>
+
+    <main class="panes">
+      <section class="pane">
+        <h2>JavaScript</h2>
+        <canvas id="jsCanvas"></canvas>
+        <div class="stats" id="jsStats">Idle</div>
+      </section>
+      <section class="pane">
+        <h2>WebAssembly</h2>
+        <canvas id="wasmCanvas"></canvas>
+        <div class="stats" id="wasmStats">Idle</div>
+      </section>
+    </main>
+
+    <footer class="results">
+      <div id="summary">Set a grid size and press Start.</div>
+    </footer>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
