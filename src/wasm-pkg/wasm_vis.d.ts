@@ -1,36 +1,39 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export class DijkstraResult {
+export class SearchResult {
     private constructor();
     free(): void;
     [Symbol.dispose](): void;
-    readonly path: Uint32Array;
-    readonly visited: Uint32Array;
     found: boolean;
     nodes_explored: number;
     path_length: number;
+    readonly path: Uint32Array;
+    readonly visited: Uint32Array;
 }
 
-export function astar(grid: Uint8Array, n: number, start: number, end: number): DijkstraResult;
+export function astar(grid: Uint8Array, n: number, start: number, end: number): SearchResult;
 
-export function dijkstra(grid: Uint8Array, n: number, start: number, end: number): DijkstraResult;
+export function bfs(grid: Uint8Array, n: number, start: number, end: number): SearchResult;
+
+export function dijkstra(grid: Uint8Array, n: number, start: number, end: number): SearchResult;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly __wbg_dijkstraresult_free: (a: number, b: number) => void;
-    readonly __wbg_get_dijkstraresult_found: (a: number) => number;
-    readonly __wbg_get_dijkstraresult_nodes_explored: (a: number) => number;
-    readonly __wbg_get_dijkstraresult_path_length: (a: number) => number;
-    readonly __wbg_set_dijkstraresult_found: (a: number, b: number) => void;
-    readonly __wbg_set_dijkstraresult_nodes_explored: (a: number, b: number) => void;
-    readonly __wbg_set_dijkstraresult_path_length: (a: number, b: number) => void;
+    readonly __wbg_get_searchresult_found: (a: number) => number;
+    readonly __wbg_get_searchresult_nodes_explored: (a: number) => number;
+    readonly __wbg_get_searchresult_path_length: (a: number) => number;
+    readonly __wbg_searchresult_free: (a: number, b: number) => void;
+    readonly __wbg_set_searchresult_found: (a: number, b: number) => void;
+    readonly __wbg_set_searchresult_nodes_explored: (a: number, b: number) => void;
+    readonly __wbg_set_searchresult_path_length: (a: number, b: number) => void;
     readonly astar: (a: number, b: number, c: number, d: number, e: number) => number;
+    readonly bfs: (a: number, b: number, c: number, d: number, e: number) => number;
     readonly dijkstra: (a: number, b: number, c: number, d: number, e: number) => number;
-    readonly dijkstraresult_path: (a: number) => [number, number];
-    readonly dijkstraresult_visited: (a: number) => [number, number];
+    readonly searchresult_path: (a: number) => [number, number];
+    readonly searchresult_visited: (a: number) => [number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;

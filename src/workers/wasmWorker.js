@@ -1,5 +1,5 @@
 // WASM pathfinding worker. Loads wasm-pack output and dispatches by algorithm.
-import init, { dijkstra, astar } from '../wasm-pkg/wasm_vis.js';
+import init, { dijkstra, astar, bfs } from '../wasm-pkg/wasm_vis.js';
 
 let ready = init();
 
@@ -8,7 +8,10 @@ self.onmessage = async (e) => {
   const { gridBuffer, n, start, end, algorithm } = e.data;
   const grid = new Uint8Array(gridBuffer);
 
-  const fn = algorithm === 'astar' ? astar : dijkstra;
+  const fn =
+    algorithm === 'astar' ? astar :
+    algorithm === 'bfs' ? bfs :
+    dijkstra;
   const t0 = performance.now();
   const result = fn(grid, n, start, end);
   const t1 = performance.now();

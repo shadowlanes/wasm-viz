@@ -61,7 +61,7 @@ async function start() {
   const density = parseInt(els.density.value, 10) / 100;
   const seed = (Math.random() * 0xffffffff) >>> 0;
   const algorithm = els.algo.value;
-  const algoLabel = algorithm === 'astar' ? 'A*' : 'Dijkstra';
+  const algoLabel = algorithm === 'astar' ? 'A*' : algorithm === 'bfs' ? 'BFS' : 'Dijkstra';
 
   const grid = generateGrid(n, density, seed);
   const start = 0;

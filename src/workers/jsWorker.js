@@ -7,7 +7,10 @@ self.onmessage = (e) => {
   const { gridBuffer, n, start, end, algorithm } = e.data;
   const grid = new Uint8Array(gridBuffer);
 
-  const fn = algorithm === 'astar' ? astar : dijkstra;
+  const fn =
+    algorithm === 'astar' ? astar :
+    algorithm === 'bfs' ? bfs :
+    dijkstra;
   const t0 = performance.now();
   const result = fn(grid, n, start, end);
   const t1 = performance.now();
@@ -76,6 +79,55 @@ function dijkstra(grid, n, start, end) {
     if (c < n - 1) {
       const ni = idx + 1;
       if (!grid[ni] && nd < dist[ni]) { dist[ni] = nd; prev[ni] = idx; heap.push(nd, ni); }
+    }
+  }
+
+  return {
+    nodesExplored: visitedCount,
+    found,
+    visited: visited.slice(0, visitedCount),
+    path: reconstructPath(prev, end, found),
+  };
+}
+
+function bfs(grid, n, start, end) {
+  const total = n * n;
+  const prev = new Int32Array(total).fill(-1);
+  const seen = new Uint8Array(total);
+  const visited = new Uint32Array(total);
+  let visitedCount = 0;
+
+  // Ring-buffer queue sized to total (BFS visits each cell at most once).
+  const queue = new Uint32Array(total);
+  let head = 0, tail = 0;
+  queue[tail++] = start;
+  seen[start] = 1;
+
+  let found = false;
+
+  while (head < tail) {
+    const idx = queue[head++];
+    visited[visitedCount++] = idx;
+    if (idx === end) { found = true; break; }
+
+    const r = (idx / n) | 0;
+    const c = idx - r * n;
+
+    if (r > 0) {
+      const ni = idx - n;
+      if (!grid[ni] && !seen[ni]) { seen[ni] = 1; prev[ni] = idx; queue[tail++] = ni; }
+    }
+    if (r < n - 1) {
+      const ni = idx + n;
+      if (!grid[ni] && !seen[ni]) { seen[ni] = 1; prev[ni] = idx; queue[tail++] = ni; }
+    }
+    if (c > 0) {
+      const ni = idx - 1;
+      if (!grid[ni] && !seen[ni]) { seen[ni] = 1; prev[ni] = idx; queue[tail++] = ni; }
+    }
+    if (c < n - 1) {
+      const ni = idx + 1;
+      if (!grid[ni] && !seen[ni]) { seen[ni] = 1; prev[ni] = idx; queue[tail++] = ni; }
     }
   }
 

@@ -1,4 +1,4 @@
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, VecDeque};
 use std::cmp::Ordering;
 use wasm_bindgen::prelude::*;
 
@@ -41,7 +41,7 @@ impl PartialOrd for ANode {
 }
 
 #[wasm_bindgen]
-pub struct DijkstraResult {
+pub struct SearchResult {
     pub nodes_explored: u32,
     pub path_length: u32,
     pub found: bool,
@@ -50,7 +50,7 @@ pub struct DijkstraResult {
 }
 
 #[wasm_bindgen]
-impl DijkstraResult {
+impl SearchResult {
     #[wasm_bindgen(getter)]
     pub fn visited(&self) -> Vec<u32> { self.visited.clone() }
     #[wasm_bindgen(getter)]
@@ -70,7 +70,7 @@ fn reconstruct(prev: &[i32], end: usize, found: bool) -> Vec<u32> {
 }
 
 #[wasm_bindgen]
-pub fn dijkstra(grid: &[u8], n: u32, start: u32, end: u32) -> DijkstraResult {
+pub fn dijkstra(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
     let n = n as usize;
     let total = n * n;
     let start = start as usize;
@@ -131,7 +131,54 @@ pub fn dijkstra(grid: &[u8], n: u32, start: u32, end: u32) -> DijkstraResult {
     }
 
     let path = reconstruct(&prev, end, found);
-    DijkstraResult {
+    SearchResult {
+        nodes_explored: visited_order.len() as u32,
+        path_length: path.len() as u32,
+        found,
+        visited: visited_order,
+        path,
+    }
+}
+
+#[wasm_bindgen]
+pub fn bfs(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
+    let n = n as usize;
+    let total = n * n;
+    let start = start as usize;
+    let end = end as usize;
+
+    let mut prev: Vec<i32> = vec![-1; total];
+    let mut visited_order: Vec<u32> = Vec::with_capacity(total / 2);
+    let mut seen: Vec<bool> = vec![false; total];
+
+    let mut queue: VecDeque<usize> = VecDeque::new();
+    queue.push_back(start);
+    seen[start] = true;
+
+    let mut found = false;
+
+    while let Some(i) = queue.pop_front() {
+        visited_order.push(i as u32);
+        if i == end { found = true; break; }
+
+        let r = i / n;
+        let c = i % n;
+
+        let mut try_n = |ni: usize, prev: &mut [i32], seen: &mut [bool], queue: &mut VecDeque<usize>| {
+            if grid[ni] == WALL || seen[ni] { return; }
+            seen[ni] = true;
+            prev[ni] = i as i32;
+            queue.push_back(ni);
+        };
+
+        if r > 0 { try_n(i - n, &mut prev, &mut seen, &mut queue); }
+        if r + 1 < n { try_n(i + n, &mut prev, &mut seen, &mut queue); }
+        if c > 0 { try_n(i - 1, &mut prev, &mut seen, &mut queue); }
+        if c + 1 < n { try_n(i + 1, &mut prev, &mut seen, &mut queue); }
+    }
+
+    let path = reconstruct(&prev, end, found);
+    SearchResult {
         nodes_explored: visited_order.len() as u32,
         path_length: path.len() as u32,
         found,
@@ -150,7 +197,7 @@ fn manhattan(idx: usize, n: usize, er: usize, ec: usize) -> u32 {
 }
 
 #[wasm_bindgen]
-pub fn astar(grid: &[u8], n: u32, start: u32, end: u32) -> DijkstraResult {
+pub fn astar(grid: &[u8], n: u32, start: u32, end: u32) -> SearchResult {
     let n = n as usize;
     let total = n * n;
     let start = start as usize;
@@ -198,7 +245,7 @@ pub fn astar(grid: &[u8], n: u32, start: u32, end: u32) -> DijkstraResult {
     }
 
     let path = reconstruct(&prev, end, found);
-    DijkstraResult {
+    SearchResult {
         nodes_explored: visited_order.len() as u32,
         path_length: path.len() as u32,
         found,

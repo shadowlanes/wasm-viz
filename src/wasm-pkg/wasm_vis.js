@@ -1,28 +1,49 @@
 /* @ts-self-types="./wasm_vis.d.ts" */
 
-export class DijkstraResult {
+export class SearchResult {
     static __wrap(ptr) {
         ptr = ptr >>> 0;
-        const obj = Object.create(DijkstraResult.prototype);
+        const obj = Object.create(SearchResult.prototype);
         obj.__wbg_ptr = ptr;
-        DijkstraResultFinalization.register(obj, obj.__wbg_ptr, obj);
+        SearchResultFinalization.register(obj, obj.__wbg_ptr, obj);
         return obj;
     }
     __destroy_into_raw() {
         const ptr = this.__wbg_ptr;
         this.__wbg_ptr = 0;
-        DijkstraResultFinalization.unregister(this);
+        SearchResultFinalization.unregister(this);
         return ptr;
     }
     free() {
         const ptr = this.__destroy_into_raw();
-        wasm.__wbg_dijkstraresult_free(ptr, 0);
+        wasm.__wbg_searchresult_free(ptr, 0);
+    }
+    /**
+     * @returns {boolean}
+     */
+    get found() {
+        const ret = wasm.__wbg_get_searchresult_found(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get nodes_explored() {
+        const ret = wasm.__wbg_get_searchresult_nodes_explored(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    get path_length() {
+        const ret = wasm.__wbg_get_searchresult_path_length(this.__wbg_ptr);
+        return ret >>> 0;
     }
     /**
      * @returns {Uint32Array}
      */
     get path() {
-        const ret = wasm.dijkstraresult_path(this.__wbg_ptr);
+        const ret = wasm.searchresult_path(this.__wbg_ptr);
         var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
         wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
         return v1;
@@ -31,65 +52,44 @@ export class DijkstraResult {
      * @returns {Uint32Array}
      */
     get visited() {
-        const ret = wasm.dijkstraresult_visited(this.__wbg_ptr);
+        const ret = wasm.searchresult_visited(this.__wbg_ptr);
         var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
         wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
         return v1;
     }
     /**
-     * @returns {boolean}
-     */
-    get found() {
-        const ret = wasm.__wbg_get_dijkstraresult_found(this.__wbg_ptr);
-        return ret !== 0;
-    }
-    /**
-     * @returns {number}
-     */
-    get nodes_explored() {
-        const ret = wasm.__wbg_get_dijkstraresult_nodes_explored(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @returns {number}
-     */
-    get path_length() {
-        const ret = wasm.__wbg_get_dijkstraresult_path_length(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
      * @param {boolean} arg0
      */
     set found(arg0) {
-        wasm.__wbg_set_dijkstraresult_found(this.__wbg_ptr, arg0);
+        wasm.__wbg_set_searchresult_found(this.__wbg_ptr, arg0);
     }
     /**
      * @param {number} arg0
      */
     set nodes_explored(arg0) {
-        wasm.__wbg_set_dijkstraresult_nodes_explored(this.__wbg_ptr, arg0);
+        wasm.__wbg_set_searchresult_nodes_explored(this.__wbg_ptr, arg0);
     }
     /**
      * @param {number} arg0
      */
     set path_length(arg0) {
-        wasm.__wbg_set_dijkstraresult_path_length(this.__wbg_ptr, arg0);
+        wasm.__wbg_set_searchresult_path_length(this.__wbg_ptr, arg0);
     }
 }
-if (Symbol.dispose) DijkstraResult.prototype[Symbol.dispose] = DijkstraResult.prototype.free;
+if (Symbol.dispose) SearchResult.prototype[Symbol.dispose] = SearchResult.prototype.free;
 
 /**
  * @param {Uint8Array} grid
  * @param {number} n
  * @param {number} start
  * @param {number} end
- * @returns {DijkstraResult}
+ * @returns {SearchResult}
  */
 export function astar(grid, n, start, end) {
     const ptr0 = passArray8ToWasm0(grid, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.astar(ptr0, len0, n, start, end);
-    return DijkstraResult.__wrap(ret);
+    return SearchResult.__wrap(ret);
 }
 
 /**
@@ -97,13 +97,27 @@ export function astar(grid, n, start, end) {
  * @param {number} n
  * @param {number} start
  * @param {number} end
- * @returns {DijkstraResult}
+ * @returns {SearchResult}
+ */
+export function bfs(grid, n, start, end) {
+    const ptr0 = passArray8ToWasm0(grid, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.bfs(ptr0, len0, n, start, end);
+    return SearchResult.__wrap(ret);
+}
+
+/**
+ * @param {Uint8Array} grid
+ * @param {number} n
+ * @param {number} start
+ * @param {number} end
+ * @returns {SearchResult}
  */
 export function dijkstra(grid, n, start, end) {
     const ptr0 = passArray8ToWasm0(grid, wasm.__wbindgen_malloc);
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.dijkstra(ptr0, len0, n, start, end);
-    return DijkstraResult.__wrap(ret);
+    return SearchResult.__wrap(ret);
 }
 function __wbg_get_imports() {
     const import0 = {
@@ -127,9 +141,9 @@ function __wbg_get_imports() {
     };
 }
 
-const DijkstraResultFinalization = (typeof FinalizationRegistry === 'undefined')
+const SearchResultFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
-    : new FinalizationRegistry(ptr => wasm.__wbg_dijkstraresult_free(ptr >>> 0, 1));
+    : new FinalizationRegistry(ptr => wasm.__wbg_searchresult_free(ptr >>> 0, 1));
 
 function getArrayU32FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
